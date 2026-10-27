@@ -1,0 +1,49 @@
+name: Python CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*', 'rc-*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Show versions and commit
+        run: |
+          python --version
+          echo "Commit: $GITHUB_SHA"
+
+      - name: Compile all Python files
+        run: python -m compileall -q .
+
+      - name: Check Dockerfile and .dockerignore
+        run: |
+          test -f Dockerfile     || { echo "Dockerfile missing";     exit 1; }
+          test -f .dockerignore  || { echo ".dockerignore missing";  exit 1; }
+          echo "Both files present"
+
+  unit_tests:
+    needs: validate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Run unittest
+        run: python -m unittest discover -s tests -v

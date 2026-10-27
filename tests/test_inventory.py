@@ -42,7 +42,6 @@ class TestInventory(unittest.TestCase):
     def test_count_zero_initially(self):
         self.assertEqual(self.inv.count(), 0)
 
-    # КЛЮЧЕВОЙ ТЕСТ ВАРИАНТА 5
     def test_serial_number_is_unique(self):
         self.inv.add_device("A1", "PC")
         with self.assertRaises(ValueError):
