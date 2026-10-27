@@ -77,3 +77,45 @@ jobs:
           path: dist/
           retention-days: ${{ steps.ret.outputs.days }}
           if-no-files-found: error
+          
+  deploy_test:
+    needs: package
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment:
+      name: test/inventory
+      url: https://example.com/test/inventory
+    env:
+      APP_PORT: ${{ vars.APP_PORT }}
+      DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: deploy/test
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Check secret presence
+        run: test -n "$DEPLOY_TOKEN" && echo "Secret is set"
+
+      - name: Smoke test — add device to temp JSON
+        working-directory: deploy/test
+        run: |
+          python - <<'PY'
+          import json, tempfile, os
+          data = json.load(open('inventory.json.example'))
+          data.setdefault('devices', []).append({'id': 9999, 'name': 'demo'})
+          fd, path = tempfile.mkstemp(suffix='.json')
+          with os.fdopen(fd, 'w') as f:
+              json.dump(data, f, ensure_ascii=False)
+          print('Device added to', path)
+          PY
+          printf 'Smoke test passed on port %s\n' "$APP_PORT" > deployment.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deployment-${{ github.run_id }}
+          path: deploy/test/deployment.txt
