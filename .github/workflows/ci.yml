@@ -47,3 +47,33 @@ jobs:
 
       - name: Run unittest
         run: python -m unittest discover -s tests -v
+        
+  package:
+    needs: unit_tests
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/rc-')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build dist and manifest
+        run: |
+          mkdir -p dist
+          cp inventory.py README.md Dockerfile inventory.json.example dist/
+          printf 'commit=%s\nrun=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" > dist/manifest.txt
+          ls -1 dist >> dist/manifest.txt
+
+      - name: Pick retention days
+        id: ret
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/rc-* ]]; then
+            echo "days=2" >> "$GITHUB_OUTPUT"
+          else
+            echo "days=7" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+          retention-days: ${{ steps.ret.outputs.days }}
+          if-no-files-found: error
